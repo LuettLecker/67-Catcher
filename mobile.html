@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>67 CATCHER - Mobile</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #game-area {
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            position: relative;
+        }
+
+        #score-board {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            padding: 8px 20px;
+            color: #00ff88;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 1000;
+            text-shadow: 0 0 10px #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+        }
+
+        #score-board .score-number {
+            font-size: 30px;
+            display: inline-block;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .falling-67 {
+            position: absolute;
+            font-size: 52px;
+            font-weight: bold;
+            color: #ff6b6b;
+            text-shadow: 0 0 15px rgba(255, 107, 107, 0.8);
+            z-index: 100;
+            animation: wobble 0.5s ease-in-out infinite alternate;
+            padding: 25px;
+        }
+
+        .falling-67:active {
+            transform: scale(0.8);
+        }
+
+        @keyframes wobble {
+            from { transform: rotate(-5deg); }
+            to { transform: rotate(5deg); }
+        }
+
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(2.5); opacity: 0.7; color: #ffd93d; }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        @keyframes splat {
+            0% { transform: scaleY(1); opacity: 1; }
+            30% { transform: scaleY(0.3) scaleX(2); opacity: 0.8; }
+            100% { transform: scaleY(0) scaleX(3); opacity: 0; }
+        }
+
+        .caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .missed {
+            animation: splat 0.3s ease-in forwards;
+            pointer-events: none;
+            color: #666 !important;
+        }
+
+        #floor {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #00ff88, #6bcfff, #ff6b6b);
+            background-size: 200% 100%;
+            animation: rainbow-floor 3s linear infinite;
+            box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+        }
+
+        @keyframes rainbow-floor {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+
+        .point-popup {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            color: #00ff88;
+            pointer-events: none;
+            animation: float-up 1s ease-out forwards;
+            text-shadow: 0 0 10px #00ff88;
+            z-index: 999;
+        }
+
+        @keyframes float-up {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+        }
+
+        #win-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: #ffd93d;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #win-screen h1 {
+            font-size: 50px;
+            text-shadow: 0 0 30px #ffd93d;
+            animation: pulse-win 0.5s ease-in-out infinite alternate;
+            margin-bottom: 15px;
+        }
+
+        #win-screen p {
+            font-size: 22px;
+            color: #00ff88;
+            margin-bottom: 20px;
+        }
+
+        #win-screen .subtitle {
+            font-size: 16px;
+            color: #6bcfff;
+            margin-top: 8px;
+        }
+
+        #win-screen button {
+            padding: 15px 40px;
+            font-size: 22px;
+            background: #00ff88;
+            border: none;
+            border-radius: 10px;
+            color: #1a1a2e;
+            font-weight: bold;
+            margin-top: 20px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #win-screen button:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 30px #00ff88;
+        }
+
+        @keyframes pulse-win {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        #combo-display {
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ffd93d;
+            font-size: 18px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 0 10px #ffd93d;
+            z-index: 1000;
+        }
+
+        #taunt {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #6bcfff;
+            font-size: 14px;
+            font-style: italic;
+            opacity: 0;
+            transition: opacity 0.5s;
+            text-shadow: 0 0 5px #6bcfff;
+            z-index: 1000;
+            text-align: center;
+            max-width: 90%;
+            white-space: nowrap;
+        }
+
+        .falling-banana {
+            position: absolute;
+            font-size: 60px;
+            z-index: 150;
+            padding: 25px;
+            animation: banana-spin 1s linear infinite;
+            filter: drop-shadow(0 0 15px rgba(255, 230, 0, 0.8));
+        }
+
+        @keyframes banana-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .falling-banana.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        body.disco-mode {
+            animation: disco-bg 0.4s linear infinite;
+        }
+
+        @keyframes disco-bg {
+            0% { background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%); }
+            25% { background: linear-gradient(135deg, #ffbe0b 0%, #fb5607 50%, #ff006e 100%); }
+            50% { background: linear-gradient(135deg, #3a86ff 0%, #06d6a0 50%, #ffbe0b 100%); }
+            75% { background: linear-gradient(135deg, #8338ec 0%, #ff006e 50%, #06d6a0 100%); }
+            100% { background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%); }
+        }
+
+        #disco-ball {
+            display: none;
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            right: 15px;
+            font-size: 50px;
+            z-index: 2000;
+            animation: disco-ball-spin 2s linear infinite;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+        }
+
+        #disco-ball.active {
+            display: block;
+        }
+
+        @keyframes disco-ball-spin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .disco-light {
+            position: fixed;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.4;
+            mix-blend-mode: screen;
+            animation: disco-light-move 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes disco-light-move {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(var(--dx), var(--dy)) scale(1.5); }
+        }
+
+        #disco-timer {
+            display: none;
+            position: fixed;
+            top: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 2000;
+            text-shadow: 0 0 15px #fff, 0 0 30px #ff006e;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 12px;
+            border-radius: 8px;
+        }
+
+        #disco-timer.active {
+            display: block;
+        }
+
+        #disco-chicken {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            pointer-events: none;
+            z-index: 99999;
+            opacity: 0.3;
+            animation: disco-chicken-pulse 0.5s ease-in-out infinite alternate;
+        }
+
+        #disco-chicken.active {
+            display: block;
+        }
+
+        @keyframes disco-chicken-pulse {
+            0% { transform: translate(-50%, -50%) scale(1) rotate(-5deg); opacity: 0.2; }
+            100% { transform: translate(-50%, -50%) scale(1.2) rotate(5deg); opacity: 0.4; }
+        }
+
+        .falling-volcano {
+            position: absolute;
+            font-size: 55px;
+            z-index: 150;
+            padding: 25px;
+            animation: volcano-shake 0.3s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 15px rgba(255, 80, 0, 0.8));
+        }
+
+        @keyframes volcano-shake {
+            0% { transform: translateX(-3px) rotate(-2deg); }
+            100% { transform: translateX(3px) rotate(2deg); }
+        }
+
+        .falling-volcano.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .lava-explosion {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 500;
+            background: radial-gradient(circle, rgba(255, 230, 0, 1), rgba(255, 120, 0, 0.8), rgba(255, 40, 0, 0.5), rgba(200, 0, 0, 0.3), transparent);
+            animation: lava-expand 1.2s ease-out forwards;
+        }
+
+        @keyframes lava-expand {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            40% { opacity: 0.9; }
+            70% { opacity: 0.6; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+
+        .lava-particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 501;
+            font-size: 24px;
+            animation: lava-fly 1s ease-out forwards;
+        }
+
+        @keyframes lava-fly {
+            0% { opacity: 1; transform: translate(0, 0) scale(1); }
+            100% { opacity: 0; transform: translate(var(--lx), var(--ly)) scale(0.3); }
+        }
+
+        #lava-text {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff4500;
+            z-index: 3000;
+            text-shadow: 0 0 20px #ff8c00, 0 0 40px #ff4500, 0 0 60px #ff0000;
+            animation: lava-text-pulse 0.3s ease-in-out infinite alternate;
+            white-space: nowrap;
+        }
+
+        #lava-text.active {
+            display: block;
+        }
+
+        @keyframes lava-text-pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            100% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        #fire-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 90;
+            border: 8px solid rgba(255, 80, 0, 0.6);
+            box-shadow: inset 0 0 80px rgba(255, 50, 0, 0.4);
+            animation: fire-border 0.3s ease-in-out infinite alternate;
+        }
+
+        #fire-overlay.active {
+            display: block;
+        }
+
+        @keyframes fire-border {
+            0% { border-color: rgba(255, 80, 0, 0.6); box-shadow: inset 0 0 80px rgba(255, 50, 0, 0.4); }
+            100% { border-color: rgba(255, 200, 0, 0.8); box-shadow: inset 0 0 100px rgba(255, 100, 0, 0.5); }
+        }
+
+        #fire-chicken-indicator {
+            display: none;
+            position: fixed;
+            bottom: max(60px, calc(env(safe-area-inset-bottom) + 50px));
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 40px;
+            z-index: 2000;
+            animation: fire-indicator-pulse 0.4s ease-in-out infinite alternate;
+        }
+
+        #fire-chicken-indicator.active {
+            display: block;
+        }
+
+        @keyframes fire-indicator-pulse {
+            0% { transform: translateX(-50%) scale(1); }
+            100% { transform: translateX(-50%) scale(1.2); }
+        }
+
+        .tap-ring {
+            position: fixed;
+            border-radius: 50%;
+            border: 3px solid rgba(0, 255, 136, 0.6);
+            pointer-events: none;
+            z-index: 998;
+            animation: tap-ring-expand 0.4s ease-out forwards;
+        }
+
+        @keyframes tap-ring-expand {
+            0% { width: 20px; height: 20px; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { width: 80px; height: 80px; opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        body.disco-mode .tap-ring {
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div id="disco-chicken">🐔</div>
+    <div id="lava-text">🌋 La-La-La-Lava Chicken 🔥</div>
+    <div id="fire-overlay"></div>
+    <div id="fire-chicken-indicator">🐔🔥</div>
+    <div id="game-area">
+        <div id="score-board">
+            PUNKTE: <span class="score-number" id="score">0</span> / 67
+        </div>
+        <div id="combo-display"></div>
+        <div id="disco-ball">🪩</div>
+        <div id="disco-timer">🍌 DISCO: <span id="disco-countdown">10</span>s 🍌</div>
+        <div id="taunt"></div>
+        <div id="floor"></div>
+    </div>
+
+    <div id="win-screen">
+        <h1>🎉 67! 🎉</h1>
+        <p>67-Meister/in!</p>
+        <p class="subtitle">Die magische Zahl wurde bezwungen!</p>
+        <p class="subtitle" id="win-stats"></p>
+        <button onclick="restartGame()">Nochmal! 🔥</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let combo = 0;
+        let missed = 0;
+        let gameActive = true;
+        let spawnInterval;
+        let difficultyInterval;
+        let currentSpeed = 3.5;
+        let spawnRate = 1400;
+        let discoActive = false;
+        let discoTimeout = null;
+        let discoCountdownInterval = null;
+        let bananaInterval = null;
+        let volcanoInterval = null;
+        let fireActive = false;
+        let fireTimeout = null;
+
+        document.addEventListener('touchstart', (e) => {
+            if (!gameActive) return;
+            e.preventDefault();
+
+            for (const touch of e.changedTouches) {
+                const x = touch.clientX;
+                const y = touch.clientY;
+
+                showTapRing(x, y);
+
+                const hitRadius = discoActive ? 120 : 60;
+                let hitSomething = false;
+
+                document.querySelectorAll('.falling-volcano').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius + 30) {
+                        catchVolcano(touch, el);
+                        hitSomething = true;
+                    }
+                });
+
+                document.querySelectorAll('.falling-banana').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius + 30) {
+                        catchBanana(touch, el);
+                        hitSomething = true;
+                    }
+                });
+
+                document.querySelectorAll('.falling-67').forEach(el => {
+                    if (el.classList.contains('caught') || el.classList.contains('missed')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius) {
+                        catchIt(touch, el);
+                        hitSomething = true;
+                    }
+                });
+            }
+        }, { passive: false });
+
+        function showTapRing(x, y) {
+            const ring = document.createElement('div');
+            ring.className = 'tap-ring';
+            ring.style.left = x + 'px';
+            ring.style.top = y + 'px';
+            document.body.appendChild(ring);
+            setTimeout(() => ring.remove(), 400);
+        }
+
+        const taunts = [
+            "Die 67er kommen! Schneller tippen!",
+            "Bist du schnell genug für die 67?",
+            "67 wartet auf niemanden!",
+            "Noch mehr 67er im Anflug!",
+            "Die 67 ist überall!",
+            "67 > 42 (fight me)",
+            "Warum 67? Warum nicht!",
+            "Die 67 hat Hunger auf deinen Score!",
+            "67 Gründe weiterzuspielen...",
+            "Plot twist: Die 67 ist die Antwort auf alles!",
+            "Speed-67-Modus aktiviert!",
+            "Die 67er multiplizieren sich!",
+            "67% Skill, 33% Glück",
+            "Fun fact: 67 ist eine Primzahl!",
+            "Die 67 respektiert nur Schnelligkeit!",
+        ];
+
+        const catchPhrases = [
+            "+1! Lecker 67!",
+            "+1! Geschnappt!",
+            "+1! 67 neutralisiert!",
+            "+1! Boom!",
+            "+1! Zu langsam, 67!",
+            "+1! Ha! Erwischt!",
+            "+1! *nom nom*",
+            "+1! K.O.!",
+            "+1! Zack!",
+            "+1! 67? Mehr wie 0!",
+        ];
+
+        function spawn67() {
+            if (!gameActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-67';
+            el.textContent = '67';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+            el.style.fontSize = (44 + Math.random() * 35) + 'px';
+
+            const rotation = (Math.random() - 0.5) * 30;
+            el.style.transform = `rotate(${rotation}deg)`;
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = currentSpeed + Math.random() * 2;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught') || el.classList.contains('missed')) return;
+
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+
+                el.style.top = currentY + 'px';
+
+                if (currentY >= window.innerHeight - 60) {
+                    missIt(el);
+                    return;
+                }
+
+                requestAnimationFrame(fall);
+            }
+
+            requestAnimationFrame(fall);
+        }
+
+        function catchIt(touch, el) {
+            if (el.classList.contains('caught') || el.classList.contains('missed') || !gameActive) return;
+
+            el.classList.add('caught');
+            score++;
+            combo++;
+
+            document.getElementById('score').textContent = score;
+
+            const phrase = catchPhrases[Math.floor(Math.random() * catchPhrases.length)];
+            showPopup(touch.clientX, touch.clientY, phrase);
+
+            if (combo >= 3) {
+                const comboDisplay = document.getElementById('combo-display');
+                comboDisplay.textContent = `🔥 ${combo}x COMBO! 🔥`;
+                comboDisplay.style.opacity = '1';
+                setTimeout(() => comboDisplay.style.opacity = '0', 1500);
+            }
+
+            setTimeout(() => el.remove(), 400);
+
+            if (score >= 67) {
+                winGame();
+            }
+        }
+
+        function missIt(el) {
+            if (el.classList.contains('caught') || el.classList.contains('missed')) return;
+            el.classList.add('missed');
+            combo = 0;
+            missed++;
+
+            const comboDisplay = document.getElementById('combo-display');
+            comboDisplay.style.opacity = '0';
+
+            setTimeout(() => el.remove(), 300);
+        }
+
+        function showPopup(x, y, text) {
+            const popup = document.createElement('div');
+            popup.className = 'point-popup';
+            popup.textContent = text;
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+            document.body.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        function showTaunt() {
+            if (!gameActive) return;
+            const taunt = document.getElementById('taunt');
+            taunt.textContent = taunts[Math.floor(Math.random() * taunts.length)];
+            taunt.style.opacity = '1';
+            setTimeout(() => taunt.style.opacity = '0', 3000);
+        }
+
+        function winGame() {
+            gameActive = false;
+            clearInterval(spawnInterval);
+            clearInterval(difficultyInterval);
+
+            document.getElementById('win-stats').textContent =
+                `Verpasst: ${missed} | Beste Combo: ${combo}x`;
+
+            setTimeout(() => {
+                document.getElementById('win-screen').style.display = 'flex';
+                spawnConfetti();
+            }, 500);
+        }
+
+        function spawnConfetti() {
+            const colors = ['#ff6b6b', '#ffd93d', '#00ff88', '#6bcfff', '#ff9ff3', '#feca57'];
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.top = '-20px';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    confetti.style.width = (4 + Math.random() * 8) + 'px';
+                    confetti.style.height = (4 + Math.random() * 8) + 'px';
+                    document.body.appendChild(confetti);
+
+                    const duration = 2 + Math.random() * 3;
+                    const xDrift = (Math.random() - 0.5) * 150;
+                    let startTime = performance.now();
+
+                    function animateConfetti(ts) {
+                        const elapsed = (ts - startTime) / 1000;
+                        const progress = elapsed / duration;
+                        confetti.style.top = (progress * window.innerHeight) + 'px';
+                        confetti.style.left = (parseFloat(confetti.style.left) + xDrift * 0.01) + 'px';
+                        confetti.style.transform = `rotate(${elapsed * 360}deg)`;
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animateConfetti);
+                        } else {
+                            confetti.remove();
+                        }
+                    }
+                    requestAnimationFrame(animateConfetti);
+                }, i * 20);
+            }
+        }
+
+        function restartGame() {
+            score = 0;
+            combo = 0;
+            missed = 0;
+            gameActive = true;
+            currentSpeed = 3.5;
+            spawnRate = 1400;
+
+            deactivateDisco();
+            deactivateFireChicken();
+            clearInterval(bananaInterval);
+            clearInterval(volcanoInterval);
+
+            document.getElementById('score').textContent = '0';
+            document.getElementById('win-screen').style.display = 'none';
+            document.getElementById('lava-text').classList.remove('active');
+
+            document.querySelectorAll('.falling-67').forEach(el => el.remove());
+            document.querySelectorAll('.falling-banana').forEach(el => el.remove());
+            document.querySelectorAll('.falling-volcano').forEach(el => el.remove());
+            document.querySelectorAll('.confetti').forEach(el => el.remove());
+            document.querySelectorAll('.lava-explosion').forEach(el => el.remove());
+            document.querySelectorAll('.lava-particle').forEach(el => el.remove());
+
+            startGame();
+        }
+
+        function spawnBanana() {
+            if (!gameActive || discoActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-banana';
+            el.textContent = '🍌';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = 4.5 + Math.random() * 2;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+
+                el.style.top = currentY + 'px';
+
+                if (currentY >= window.innerHeight - 80) {
+                    el.remove();
+                    return;
+                }
+
+                requestAnimationFrame(fall);
+            }
+
+            requestAnimationFrame(fall);
+        }
+
+        function catchBanana(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+
+            showPopup(touch.clientX, touch.clientY, '🍌 DISCO TIME! 🕺');
+
+            setTimeout(() => el.remove(), 400);
+            activateDisco();
+        }
+
+        function activateDisco() {
+            discoActive = true;
+            let remaining = 10;
+
+            document.body.classList.add('disco-mode');
+            document.getElementById('disco-chicken').classList.add('active');
+            document.getElementById('disco-ball').classList.add('active');
+            document.getElementById('disco-timer').classList.add('active');
+            document.getElementById('disco-countdown').textContent = remaining;
+
+            spawnDiscoLights();
+
+            discoCountdownInterval = setInterval(() => {
+                remaining--;
+                document.getElementById('disco-countdown').textContent = remaining;
+                if (remaining <= 0) {
+                    deactivateDisco();
+                }
+            }, 1000);
+
+            discoTimeout = setTimeout(() => {
+                deactivateDisco();
+            }, 10000);
+        }
+
+        function deactivateDisco() {
+            discoActive = false;
+            clearTimeout(discoTimeout);
+            clearInterval(discoCountdownInterval);
+
+            document.body.classList.remove('disco-mode');
+            document.getElementById('disco-chicken').classList.remove('active');
+            document.getElementById('disco-ball').classList.remove('active');
+            document.getElementById('disco-timer').classList.remove('active');
+
+            document.querySelectorAll('.disco-light').forEach(el => el.remove());
+        }
+
+        function spawnDiscoLights() {
+            const colors = ['#ff006e', '#8338ec', '#3a86ff', '#ffbe0b', '#06d6a0', '#fb5607'];
+            for (let i = 0; i < 6; i++) {
+                const light = document.createElement('div');
+                light.className = 'disco-light';
+                light.style.background = `radial-gradient(circle, ${colors[i % colors.length]}, transparent)`;
+                light.style.left = Math.random() * 80 + 'vw';
+                light.style.top = Math.random() * 80 + 'vh';
+                light.style.setProperty('--dx', (Math.random() * 100 - 50) + 'px');
+                light.style.setProperty('--dy', (Math.random() * 100 - 50) + 'px');
+                light.style.animationDuration = (1 + Math.random() * 2) + 's';
+                light.style.animationDelay = (Math.random() * 0.5) + 's';
+                document.body.appendChild(light);
+            }
+        }
+
+        function spawnVolcano() {
+            if (!gameActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-volcano';
+            el.textContent = '🌋';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = 5 + Math.random() * 2;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+
+                el.style.top = currentY + 'px';
+
+                if (currentY >= window.innerHeight - 80) {
+                    el.remove();
+                    return;
+                }
+
+                requestAnimationFrame(fall);
+            }
+
+            requestAnimationFrame(fall);
+        }
+
+        function catchVolcano(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+
+            const x = touch.clientX;
+            const y = touch.clientY;
+
+            setTimeout(() => el.remove(), 400);
+            triggerLavaExplosion(x, y);
+        }
+
+        function triggerLavaExplosion(x, y) {
+            const explosion = document.createElement('div');
+            explosion.className = 'lava-explosion';
+            explosion.style.left = x + 'px';
+            explosion.style.top = y + 'px';
+            explosion.style.width = '900px';
+            explosion.style.height = '900px';
+            document.body.appendChild(explosion);
+            setTimeout(() => explosion.remove(), 1200);
+
+            const particles = ['🔥', '💥', '🌋', '☄️', '🔥', '💥', '🔥', '☄️'];
+            for (let i = 0; i < 16; i++) {
+                const p = document.createElement('div');
+                p.className = 'lava-particle';
+                p.textContent = particles[i % particles.length];
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                const angle = (i / 16) * Math.PI * 2;
+                const dist = 100 + Math.random() * 300;
+                p.style.setProperty('--lx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ly', Math.sin(angle) * dist + 'px');
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+
+            const lavaRadius = 450;
+            document.querySelectorAll('.falling-67').forEach(el => {
+                if (el.classList.contains('caught') || el.classList.contains('missed')) return;
+                const rect = el.getBoundingClientRect();
+                const elX = rect.left + rect.width / 2;
+                const elY = rect.top + rect.height / 2;
+                const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                if (dist < lavaRadius) {
+                    el.classList.add('caught');
+                    score++;
+                    combo++;
+                    document.getElementById('score').textContent = score;
+                    showPopup(elX, elY, '🔥 +1!');
+                    setTimeout(() => el.remove(), 400);
+                    if (score >= 67) winGame();
+                }
+            });
+
+            document.getElementById('lava-text').classList.add('active');
+            setTimeout(() => document.getElementById('lava-text').classList.remove('active'), 2500);
+
+            activateFireChicken();
+        }
+
+        function activateFireChicken() {
+            fireActive = true;
+            clearTimeout(fireTimeout);
+
+            document.getElementById('fire-overlay').classList.add('active');
+            document.getElementById('fire-chicken-indicator').classList.add('active');
+
+            fireTimeout = setTimeout(() => {
+                deactivateFireChicken();
+            }, 5000);
+        }
+
+        function deactivateFireChicken() {
+            fireActive = false;
+            document.getElementById('fire-overlay').classList.remove('active');
+            document.getElementById('fire-chicken-indicator').classList.remove('active');
+        }
+
+        function startGame() {
+            spawnInterval = setInterval(spawn67, spawnRate);
+
+            bananaInterval = setInterval(() => {
+                if (Math.random() < 0.3) spawnBanana();
+            }, 8000);
+
+            volcanoInterval = setInterval(() => {
+                if (Math.random() < 0.25) spawnVolcano();
+            }, 12000);
+
+            difficultyInterval = setInterval(() => {
+                if (!gameActive) return;
+                if (currentSpeed > 2) currentSpeed -= 0.12;
+                if (spawnRate > 600) {
+                    spawnRate -= 60;
+                    clearInterval(spawnInterval);
+                    spawnInterval = setInterval(spawn67, spawnRate);
+                }
+            }, 5000);
+
+            setInterval(showTaunt, 5000);
+            showTaunt();
+        }
+
+        startGame();
+    </script>
+</body>
+</html>
