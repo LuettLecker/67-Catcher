@@ -1457,6 +1457,59 @@
             setTimeout(() => document.getElementById('lava-text').classList.remove('active'), 2500);
 
             activateFireChicken();
+
+            if (selectedAvatar === 'lava-boy') {
+                setTimeout(() => {
+                    if (!gameActive) return;
+                    const rx = Math.random() * (window.innerWidth - 100) + 50;
+                    const ry = Math.random() * (window.innerHeight - 200) + 100;
+                    triggerLavaExplosionSecond(rx, ry);
+                }, 3000);
+            }
+        }
+
+        function triggerLavaExplosionSecond(x, y) {
+            const explosion = document.createElement('div');
+            explosion.className = 'lava-explosion';
+            explosion.style.left = x + 'px';
+            explosion.style.top = y + 'px';
+            explosion.style.width = '900px';
+            explosion.style.height = '900px';
+            document.body.appendChild(explosion);
+            setTimeout(() => explosion.remove(), 1200);
+
+            const particles = ['🔥', '💥', '🌋', '☄️', '🔥', '💥', '🔥', '☄️'];
+            for (let i = 0; i < 12; i++) {
+                const p = document.createElement('div');
+                p.className = 'lava-particle';
+                p.textContent = particles[i % particles.length];
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                const angle = (i / 12) * Math.PI * 2;
+                const dist = 80 + Math.random() * 250;
+                p.style.setProperty('--lx', Math.cos(angle) * dist + 'px');
+                p.style.setProperty('--ly', Math.sin(angle) * dist + 'px');
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 1000);
+            }
+
+            const lavaRadius = 450;
+            document.querySelectorAll('.falling-67').forEach(el => {
+                if (el.classList.contains('caught') || el.classList.contains('missed')) return;
+                const rect = el.getBoundingClientRect();
+                const elX = rect.left + rect.width / 2;
+                const elY = rect.top + rect.height / 2;
+                const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                if (dist < lavaRadius) {
+                    el.classList.add('caught');
+                    score++;
+                    combo++;
+                    document.getElementById('score').textContent = score;
+                    showPopup(elX, elY, '🔥 +1!');
+                    setTimeout(() => el.remove(), 400);
+                    if (score >= 67) winGame();
+                }
+            });
         }
 
         function activateFireChicken() {
@@ -1518,12 +1571,13 @@
             if (el.classList.contains('caught') || !gameActive) return;
             el.classList.add('caught');
 
-            score -= 3;
+            const penalty = (selectedAvatar === 'super-fred') ? 2 : 3;
+            score -= penalty;
             if (score < 0) score = 0;
             combo = 0;
             document.getElementById('score').textContent = score;
 
-            showNegativePopup(touch.clientX, touch.clientY, '💀 -3!');
+            showNegativePopup(touch.clientX, touch.clientY, `💀 -${penalty}!`);
             showSkull(touch.clientX, touch.clientY);
 
             setTimeout(() => el.remove(), 400);
@@ -1589,12 +1643,13 @@
             if (el.classList.contains('caught') || !gameActive) return;
             el.classList.add('caught');
 
-            score -= 3;
+            const penalty = (selectedAvatar === 'super-fred') ? 2 : 3;
+            score -= penalty;
             if (score < 0) score = 0;
             combo = 0;
             document.getElementById('score').textContent = score;
 
-            showNegativePopup(touch.clientX, touch.clientY, '🍄 -3! GIFT!');
+            showNegativePopup(touch.clientX, touch.clientY, `🍄 -${penalty}! GIFT!`);
             showSkull(touch.clientX, touch.clientY);
 
             setTimeout(() => el.remove(), 400);
@@ -1781,9 +1836,10 @@
                 if (Math.random() < 0.3) spawnBanana();
             }, 8000);
 
+            const volcanoRate = (selectedAvatar === 'lava-boy') ? 6000 : 12000;
             volcanoInterval = setInterval(() => {
                 if (Math.random() < 0.25) spawnVolcano();
-            }, 12000);
+            }, volcanoRate);
 
             difficultyInterval = setInterval(() => {
                 if (!gameActive) return;
