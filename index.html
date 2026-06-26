@@ -646,6 +646,57 @@
             display: block;
         }
 
+        #level-transition {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background: rgba(0,0,0,0.9);
+            z-index: 9998;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #level-transition.active {
+            display: flex;
+        }
+
+        #level-transition h1 {
+            font-size: 60px;
+            color: #ffd93d;
+            text-shadow: 0 0 30px #ffd93d, 0 0 60px #ff6b6b;
+            animation: level-pulse 0.4s ease-in-out infinite alternate;
+        }
+
+        #level-transition p {
+            font-size: 20px;
+            color: #6bcfff;
+            margin-top: 15px;
+        }
+
+        @keyframes level-pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.15); }
+        }
+
+        #level-display {
+            position: fixed;
+            top: max(12px, env(safe-area-inset-top));
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #ffd93d;
+            border-radius: 8px;
+            padding: 4px 10px;
+            color: #ffd93d;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1001;
+            text-shadow: 0 0 8px #ffd93d;
+        }
+
         #pause-btn {
             position: fixed;
             top: max(12px, env(safe-area-inset-top));
@@ -830,7 +881,7 @@
                     <rect x="36" y="73" width="7" height="12" rx="3" fill="#333"/>
                 </svg>
                 <div class="avatar-name">Super-Fred</div>
-                <div class="avatar-effect">-2 statt -3</div>
+                <div class="avatar-effect">Weniger Minuspunkte</div>
             </div>
             <div class="avatar-card" data-avatar="suiii-man" onclick="selectAvatar(this)">
                 <svg viewBox="0 0 70 90" xmlns="http://www.w3.org/2000/svg">
@@ -849,7 +900,7 @@
                     <rect x="36" y="73" width="7" height="12" rx="3" fill="#222"/>
                 </svg>
                 <div class="avatar-name">SUIII-Man</div>
-                <div class="avatar-effect">CR7 = +5</div>
+                <div class="avatar-effect">+5 bei CR7</div>
             </div>
             <div class="avatar-card" data-avatar="lava-boy" onclick="selectAvatar(this)">
                 <svg viewBox="0 0 70 90" xmlns="http://www.w3.org/2000/svg">
@@ -868,7 +919,7 @@
                     <rect x="36" y="73" width="7" height="12" rx="3" fill="#8b0000"/>
                 </svg>
                 <div class="avatar-name">Lava-Boy</div>
-                <div class="avatar-effect">2x Vulkane</div>
+                <div class="avatar-effect">2x Vulkane & Explosion</div>
             </div>
         </div>
         <button id="start-btn" onclick="startGameFromMenu()">START 🎮</button>
@@ -880,15 +931,22 @@
     <div id="fire-chicken-indicator">🐔🔥</div>
     <div id="poison-overlay"></div>
     <div id="poison-timer">🍄 GIFT: <span id="poison-countdown">10</span>s 🍄</div>
+    <div id="level-transition">
+        <h1 id="level-transition-text">LEVEL 2!</h1>
+        <p id="level-transition-sub"></p>
+    </div>
+
     <div id="pause-overlay">
         <h2>⏸️ PAUSE</h2>
         <button onclick="togglePause()">Weiter ▶️</button>
+        <button onclick="location.reload()" style="background:#ff6b6b; margin-top:10px;">Neustart 🔄</button>
     </div>
 
     <div id="game-area">
         <div id="score-board">
             PUNKTE: <span class="score-number" id="score">0</span>
         </div>
+        <div id="level-display">LVL 1</div>
         <div id="pause-btn" onclick="togglePause()">⏸</div>
         <div id="combo-display"></div>
         <div id="cr7-timer">⚽ CR7: <span id="cr7-countdown">6</span>s</div>
@@ -915,6 +973,9 @@
         let playerName = '';
         let selectedAvatar = null;
         let paused = false;
+        let pausedTime = 0;
+        let pauseStartTime = 0;
+        let currentLevel = 1;
         let spawnInterval;
         let difficultyInterval;
         let currentSpeed = 3.5;
@@ -939,6 +1000,7 @@
 
         document.addEventListener('touchstart', (e) => {
             if (!gameActive || paused) return;
+            if (e.target.closest('#pause-btn')) return;
             e.preventDefault();
 
             for (const touch of e.changedTouches) {
@@ -1100,6 +1162,8 @@
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught') || el.classList.contains('missed')) return;
 
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1139,7 +1203,7 @@
             setTimeout(() => el.remove(), 400);
 
             if (score >= 67) {
-                winGame();
+                checkLevelComplete();
             }
         }
 
@@ -1173,13 +1237,53 @@
             setTimeout(() => taunt.style.opacity = '0', 3000);
         }
 
-        function winGame() {
+        function checkLevelComplete() {
+            if (currentLevel < 3) {
+                levelUp();
+            } else {
+                winGame();
+            }
+        }
+
+        function levelUp() {
             gameActive = false;
+            clearAllIntervals();
+            removeAllItems();
+            currentLevel++;
+
+            const levelNames = { 2: '⚽ Fußball & 🍄 Giftpilz!', 3: '⚠️ Die 11er kommen!' };
+            document.getElementById('level-transition-text').textContent = `LEVEL ${currentLevel}!`;
+            document.getElementById('level-transition-sub').textContent = levelNames[currentLevel] || '';
+            document.getElementById('level-transition').classList.add('active');
+
+            setTimeout(() => {
+                document.getElementById('level-transition').classList.remove('active');
+                score = 0;
+                combo = 0;
+                document.getElementById('score').textContent = '0';
+                document.getElementById('level-display').textContent = `LVL ${currentLevel}`;
+                gameActive = true;
+                startGame();
+            }, 2500);
+        }
+
+        function clearAllIntervals() {
             clearInterval(spawnInterval);
             clearInterval(difficultyInterval);
             clearInterval(elevenInterval);
             clearInterval(mushroomInterval);
             clearInterval(footballInterval);
+            clearInterval(bananaInterval);
+            clearInterval(volcanoInterval);
+        }
+
+        function removeAllItems() {
+            document.querySelectorAll('.falling-67, .falling-11, .falling-mushroom, .falling-banana, .falling-volcano, .falling-football, .falling-cr7').forEach(el => el.remove());
+        }
+
+        function winGame() {
+            gameActive = false;
+            clearAllIntervals();
 
             document.getElementById('win-stats').textContent =
                 `Verpasst: ${missed} | Beste Combo: ${combo}x`;
@@ -1230,6 +1334,7 @@
             score = 0;
             combo = 0;
             missed = 0;
+            currentLevel = 1;
             gameActive = true;
             currentSpeed = 3.5;
             spawnRate = 1400;
@@ -1238,23 +1343,14 @@
             deactivateFireChicken();
             deactivatePoison();
             deactivateCR7();
-            clearInterval(bananaInterval);
-            clearInterval(volcanoInterval);
-            clearInterval(elevenInterval);
-            clearInterval(mushroomInterval);
-            clearInterval(footballInterval);
+            clearAllIntervals();
 
             document.getElementById('score').textContent = '0';
             document.getElementById('win-screen').style.display = 'none';
             document.getElementById('lava-text').classList.remove('active');
+            document.getElementById('level-display').textContent = 'LVL 1';
 
-            document.querySelectorAll('.falling-67').forEach(el => el.remove());
-            document.querySelectorAll('.falling-11').forEach(el => el.remove());
-            document.querySelectorAll('.falling-mushroom').forEach(el => el.remove());
-            document.querySelectorAll('.falling-banana').forEach(el => el.remove());
-            document.querySelectorAll('.falling-volcano').forEach(el => el.remove());
-            document.querySelectorAll('.falling-football').forEach(el => el.remove());
-            document.querySelectorAll('.falling-cr7').forEach(el => el.remove());
+            removeAllItems();
             document.querySelectorAll('.confetti').forEach(el => el.remove());
             document.querySelectorAll('.lava-explosion').forEach(el => el.remove());
             document.querySelectorAll('.lava-particle').forEach(el => el.remove());
@@ -1282,6 +1378,8 @@
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
 
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1382,6 +1480,8 @@
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
 
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1449,7 +1549,7 @@
                     document.getElementById('score').textContent = score;
                     showPopup(elX, elY, '🔥 +1!');
                     setTimeout(() => el.remove(), 400);
-                    if (score >= 67) winGame();
+                    if (score >= 67) checkLevelComplete();
                 }
             });
 
@@ -1507,7 +1607,7 @@
                     document.getElementById('score').textContent = score;
                     showPopup(elX, elY, '🔥 +1!');
                     setTimeout(() => el.remove(), 400);
-                    if (score >= 67) winGame();
+                    if (score >= 67) checkLevelComplete();
                 }
             });
         }
@@ -1550,6 +1650,8 @@
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
 
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1622,6 +1724,8 @@
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
 
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1715,6 +1819,8 @@
 
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1789,6 +1895,8 @@
 
             function fall(timestamp) {
                 if (!el.parentNode || el.classList.contains('caught')) return;
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
                 const elapsed = (timestamp - startTime) / 1000;
                 const progress = elapsed / fallDuration;
                 const currentY = startY + (endY - startY) * progress;
@@ -1814,23 +1922,14 @@
             showPopup(touch.clientX, touch.clientY, `SUII! +${points}!`);
             setTimeout(() => el.remove(), 400);
 
-            if (score >= 67) winGame();
+            if (score >= 67) checkLevelComplete();
         }
 
         function startGame() {
+            currentSpeed = 3.5;
+            spawnRate = 1400;
+
             spawnInterval = setInterval(spawn67, spawnRate);
-
-            elevenInterval = setInterval(() => {
-                if (Math.random() < 0.35) spawn11();
-            }, 3000);
-
-            mushroomInterval = setInterval(() => {
-                if (Math.random() < 0.2) spawnMushroom();
-            }, 15000);
-
-            footballInterval = setInterval(() => {
-                if (Math.random() < 0.25) spawnFootball();
-            }, 10000);
 
             bananaInterval = setInterval(() => {
                 if (Math.random() < 0.3) spawnBanana();
@@ -1840,6 +1939,22 @@
             volcanoInterval = setInterval(() => {
                 if (Math.random() < 0.25) spawnVolcano();
             }, volcanoRate);
+
+            if (currentLevel >= 2) {
+                footballInterval = setInterval(() => {
+                    if (Math.random() < 0.25) spawnFootball();
+                }, 10000);
+
+                mushroomInterval = setInterval(() => {
+                    if (Math.random() < 0.2) spawnMushroom();
+                }, 15000);
+            }
+
+            if (currentLevel >= 3) {
+                elevenInterval = setInterval(() => {
+                    if (Math.random() < 0.35) spawn11();
+                }, 3000);
+            }
 
             difficultyInterval = setInterval(() => {
                 if (!gameActive) return;
@@ -1861,9 +1976,17 @@
             if (paused) {
                 gameActive = false;
                 document.getElementById('pause-overlay').classList.add('active');
+                document.getElementById('game-area').style.animationPlayState = 'paused';
+                document.querySelectorAll('#game-area *').forEach(el => {
+                    el.style.animationPlayState = 'paused';
+                });
             } else {
                 gameActive = true;
                 document.getElementById('pause-overlay').classList.remove('active');
+                document.getElementById('game-area').style.animationPlayState = '';
+                document.querySelectorAll('#game-area *').forEach(el => {
+                    el.style.animationPlayState = '';
+                });
             }
         }
 
