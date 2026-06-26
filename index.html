@@ -587,6 +587,65 @@
             padding: 10px !important;
         }
 
+        .falling-football {
+            position: absolute;
+            font-size: 55px;
+            z-index: 150;
+            padding: 25px;
+            animation: football-bounce 0.6s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.6));
+        }
+
+        @keyframes football-bounce {
+            0% { transform: rotate(-10deg) scale(1); }
+            100% { transform: rotate(10deg) scale(1.1); }
+        }
+
+        .falling-football.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .falling-cr7 {
+            position: absolute;
+            font-size: 48px;
+            font-weight: bold;
+            color: #00e676;
+            text-shadow: 0 0 15px rgba(0, 230, 118, 0.8);
+            z-index: 100;
+            animation: cr7-wobble 0.4s ease-in-out infinite alternate;
+            padding: 25px;
+        }
+
+        @keyframes cr7-wobble {
+            from { transform: rotate(-4deg) scale(1); }
+            to { transform: rotate(4deg) scale(1.05); }
+        }
+
+        .falling-cr7.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        #cr7-timer {
+            display: none;
+            position: fixed;
+            top: max(65px, calc(env(safe-area-inset-top) + 50px));
+            right: 15px;
+            color: #00e676;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 2000;
+            text-shadow: 0 0 10px #00e676;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 10px;
+            border-radius: 8px;
+        }
+
+        #cr7-timer.active {
+            display: block;
+        }
+
         #pause-btn {
             position: fixed;
             top: max(12px, env(safe-area-inset-top));
@@ -832,6 +891,7 @@
         </div>
         <div id="pause-btn" onclick="togglePause()">⏸</div>
         <div id="combo-display"></div>
+        <div id="cr7-timer">⚽ CR7: <span id="cr7-countdown">6</span>s</div>
         <div id="disco-ball">🪩</div>
         <div id="disco-timer">🍌 DISCO: <span id="disco-countdown">10</span>s 🍌</div>
         <div id="taunt"></div>
@@ -871,6 +931,11 @@
         let poisonActive = false;
         let poisonTimeout = null;
         let poisonCountdownInterval = null;
+        let footballInterval = null;
+        let cr7Active = false;
+        let cr7SpawnInterval = null;
+        let cr7Timeout = null;
+        let cr7CountdownInterval = null;
 
         document.addEventListener('touchstart', (e) => {
             if (!gameActive || paused) return;
@@ -884,6 +949,30 @@
 
                 const hitRadius = discoActive ? 120 : 60;
                 let hitSomething = false;
+
+                document.querySelectorAll('.falling-football').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius + 30) {
+                        catchFootball(touch, el);
+                        hitSomething = true;
+                    }
+                });
+
+                document.querySelectorAll('.falling-cr7').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius) {
+                        catchCR7(touch, el);
+                        hitSomething = true;
+                    }
+                });
 
                 document.querySelectorAll('.falling-mushroom').forEach(el => {
                     if (el.classList.contains('caught')) return;
@@ -1090,6 +1179,7 @@
             clearInterval(difficultyInterval);
             clearInterval(elevenInterval);
             clearInterval(mushroomInterval);
+            clearInterval(footballInterval);
 
             document.getElementById('win-stats').textContent =
                 `Verpasst: ${missed} | Beste Combo: ${combo}x`;
@@ -1147,10 +1237,12 @@
             deactivateDisco();
             deactivateFireChicken();
             deactivatePoison();
+            deactivateCR7();
             clearInterval(bananaInterval);
             clearInterval(volcanoInterval);
             clearInterval(elevenInterval);
             clearInterval(mushroomInterval);
+            clearInterval(footballInterval);
 
             document.getElementById('score').textContent = '0';
             document.getElementById('win-screen').style.display = 'none';
@@ -1161,6 +1253,8 @@
             document.querySelectorAll('.falling-mushroom').forEach(el => el.remove());
             document.querySelectorAll('.falling-banana').forEach(el => el.remove());
             document.querySelectorAll('.falling-volcano').forEach(el => el.remove());
+            document.querySelectorAll('.falling-football').forEach(el => el.remove());
+            document.querySelectorAll('.falling-cr7').forEach(el => el.remove());
             document.querySelectorAll('.confetti').forEach(el => el.remove());
             document.querySelectorAll('.lava-explosion').forEach(el => el.remove());
             document.querySelectorAll('.lava-particle').forEach(el => el.remove());
@@ -1548,6 +1642,126 @@
             });
         }
 
+        function spawnFootball() {
+            if (!gameActive || cr7Active) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-football';
+            el.textContent = '⚽';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = 5 + Math.random() * 2;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+                el.style.top = currentY + 'px';
+                if (currentY >= window.innerHeight - 80) {
+                    el.remove();
+                    return;
+                }
+                requestAnimationFrame(fall);
+            }
+            requestAnimationFrame(fall);
+        }
+
+        function catchFootball(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+            showPopup(touch.clientX, touch.clientY, '⚽ CR7 TIME!');
+            setTimeout(() => el.remove(), 400);
+            activateCR7();
+        }
+
+        function activateCR7() {
+            cr7Active = true;
+            let remaining = 6;
+
+            clearTimeout(cr7Timeout);
+            clearInterval(cr7SpawnInterval);
+            clearInterval(cr7CountdownInterval);
+
+            document.getElementById('cr7-timer').classList.add('active');
+            document.getElementById('cr7-countdown').textContent = remaining;
+
+            cr7SpawnInterval = setInterval(() => {
+                if (gameActive && !paused) spawnCR7();
+            }, 800);
+
+            cr7CountdownInterval = setInterval(() => {
+                remaining--;
+                document.getElementById('cr7-countdown').textContent = remaining;
+                if (remaining <= 0) deactivateCR7();
+            }, 1000);
+
+            cr7Timeout = setTimeout(() => {
+                deactivateCR7();
+            }, 6000);
+        }
+
+        function deactivateCR7() {
+            cr7Active = false;
+            clearTimeout(cr7Timeout);
+            clearInterval(cr7SpawnInterval);
+            clearInterval(cr7CountdownInterval);
+            document.getElementById('cr7-timer').classList.remove('active');
+        }
+
+        function spawnCR7() {
+            if (!gameActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-cr7';
+            el.textContent = 'CR7';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+            el.style.fontSize = (40 + Math.random() * 20) + 'px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = currentSpeed + Math.random() * 1.5;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+                el.style.top = currentY + 'px';
+                if (currentY >= window.innerHeight - 60) {
+                    el.remove();
+                    return;
+                }
+                requestAnimationFrame(fall);
+            }
+            requestAnimationFrame(fall);
+        }
+
+        function catchCR7(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+
+            const points = (selectedAvatar === 'suiii-man') ? 5 : 2;
+            score += points;
+            combo++;
+            document.getElementById('score').textContent = score;
+
+            showPopup(touch.clientX, touch.clientY, `SUII! +${points}!`);
+            setTimeout(() => el.remove(), 400);
+
+            if (score >= 67) winGame();
+        }
+
         function startGame() {
             spawnInterval = setInterval(spawn67, spawnRate);
 
@@ -1558,6 +1772,10 @@
             mushroomInterval = setInterval(() => {
                 if (Math.random() < 0.2) spawnMushroom();
             }, 15000);
+
+            footballInterval = setInterval(() => {
+                if (Math.random() < 0.25) spawnFootball();
+            }, 10000);
 
             bananaInterval = setInterval(() => {
                 if (Math.random() < 0.3) spawnBanana();
