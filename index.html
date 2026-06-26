@@ -682,6 +682,82 @@
             to { transform: scale(1.15); }
         }
 
+        #boss-container {
+            display: none;
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 800;
+            pointer-events: none;
+        }
+
+        #boss-container.active {
+            display: block;
+        }
+
+        #boss-emoji {
+            font-size: 120px;
+            animation: boss-float 1.5s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+        }
+
+        @keyframes boss-float {
+            0% { transform: translateY(0) scale(1); }
+            100% { transform: translateY(-15px) scale(1.05); }
+        }
+
+        #boss-hp-bar {
+            width: 200px;
+            height: 16px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            margin: 10px auto 0;
+            overflow: hidden;
+        }
+
+        #boss-hp-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff4444);
+            transition: width 0.3s;
+            border-radius: 6px;
+        }
+
+        #boss-hp-text {
+            color: #ff4444;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 4px;
+            text-shadow: 0 0 8px #ff0000;
+        }
+
+        #boss-announce {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffd93d;
+            z-index: 9000;
+            text-shadow: 0 0 30px #ffd93d, 0 0 60px #ff6b6b;
+            animation: boss-announce-pulse 0.5s ease-in-out infinite alternate;
+            white-space: nowrap;
+        }
+
+        #boss-announce.active {
+            display: block;
+        }
+
+        @keyframes boss-announce-pulse {
+            from { transform: translate(-50%, -50%) scale(1); }
+            to { transform: translate(-50%, -50%) scale(1.15); }
+        }
+
         #level-display {
             position: fixed;
             top: max(12px, env(safe-area-inset-top));
@@ -931,6 +1007,13 @@
     <div id="fire-chicken-indicator">🐔🔥</div>
     <div id="poison-overlay"></div>
     <div id="poison-timer">🍄 GIFT: <span id="poison-countdown">10</span>s 🍄</div>
+    <div id="boss-announce">🐐 Der GOAT kommt! 🐐</div>
+    <div id="boss-container">
+        <div id="boss-emoji">🐐</div>
+        <div id="boss-hp-bar"><div id="boss-hp-fill"></div></div>
+        <div id="boss-hp-text">50 / 50 HP</div>
+    </div>
+
     <div id="level-transition">
         <h1 id="level-transition-text">LEVEL 2!</h1>
         <p id="level-transition-sub"></p>
@@ -997,6 +1080,10 @@
         let cr7SpawnInterval = null;
         let cr7Timeout = null;
         let cr7CountdownInterval = null;
+        let bossActive = false;
+        let bossHP = 50;
+        let bossMaxHP = 50;
+        let bossRegenInterval = null;
 
         document.addEventListener('touchstart', (e) => {
             if (!gameActive || paused) return;
@@ -1185,10 +1272,14 @@
             if (el.classList.contains('caught') || el.classList.contains('missed') || !gameActive) return;
 
             el.classList.add('caught');
-            score++;
             combo++;
 
-            document.getElementById('score').textContent = score;
+            if (bossActive) {
+                damageBoss(1);
+            } else {
+                score++;
+                document.getElementById('score').textContent = score;
+            }
 
             const phrase = catchPhrases[Math.floor(Math.random() * catchPhrases.length)];
             showPopup(touch.clientX, touch.clientY, phrase);
@@ -1202,7 +1293,7 @@
 
             setTimeout(() => el.remove(), 400);
 
-            if (score >= 67) {
+            if (!bossActive && score >= 67) {
                 checkLevelComplete();
             }
         }
@@ -1238,10 +1329,11 @@
         }
 
         function checkLevelComplete() {
+            if (bossActive) return;
             if (currentLevel < 3) {
                 levelUp();
             } else {
-                winGame();
+                startBossPhase();
             }
         }
 
@@ -1923,6 +2015,49 @@
             setTimeout(() => el.remove(), 400);
 
             if (score >= 67) checkLevelComplete();
+        }
+
+        function startBossPhase() {
+            bossActive = true;
+            bossHP = bossMaxHP;
+
+            document.getElementById('boss-announce').classList.add('active');
+            setTimeout(() => {
+                document.getElementById('boss-announce').classList.remove('active');
+                document.getElementById('boss-container').classList.add('active');
+                updateBossHP();
+
+                bossRegenInterval = setInterval(() => {
+                    if (!gameActive || !bossActive) return;
+                    bossHP = Math.min(bossHP + 3, bossMaxHP);
+                    updateBossHP();
+                }, 8000);
+            }, 2500);
+        }
+
+        function damageBoss(amount) {
+            if (!bossActive) return;
+            bossHP -= amount;
+            if (bossHP <= 0) {
+                bossHP = 0;
+                updateBossHP();
+                bossDefeated();
+            } else {
+                updateBossHP();
+            }
+        }
+
+        function updateBossHP() {
+            const pct = (bossHP / bossMaxHP) * 100;
+            document.getElementById('boss-hp-fill').style.width = pct + '%';
+            document.getElementById('boss-hp-text').textContent = `${bossHP} / ${bossMaxHP} HP`;
+        }
+
+        function bossDefeated() {
+            bossActive = false;
+            clearInterval(bossRegenInterval);
+            document.getElementById('boss-container').classList.remove('active');
+            winGame();
         }
 
         function startGame() {
