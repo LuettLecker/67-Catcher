@@ -1431,6 +1431,12 @@
             currentSpeed = 3.5;
             spawnRate = 1400;
 
+            bossActive = false;
+            bossHP = bossMaxHP;
+            clearInterval(bossRegenInterval);
+            document.getElementById('boss-container').classList.remove('active');
+            document.getElementById('boss-announce').classList.remove('active');
+
             deactivateDisco();
             deactivateFireChicken();
             deactivatePoison();
@@ -1636,12 +1642,16 @@
                 const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
                 if (dist < lavaRadius) {
                     el.classList.add('caught');
-                    score++;
                     combo++;
-                    document.getElementById('score').textContent = score;
+                    if (bossActive) {
+                        damageBoss(1);
+                    } else {
+                        score++;
+                        document.getElementById('score').textContent = score;
+                    }
                     showPopup(elX, elY, '🔥 +1!');
                     setTimeout(() => el.remove(), 400);
-                    if (score >= 67) checkLevelComplete();
+                    if (!bossActive && score >= 67) checkLevelComplete();
                 }
             });
 
@@ -1694,12 +1704,16 @@
                 const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
                 if (dist < lavaRadius) {
                     el.classList.add('caught');
-                    score++;
                     combo++;
-                    document.getElementById('score').textContent = score;
+                    if (bossActive) {
+                        damageBoss(1);
+                    } else {
+                        score++;
+                        document.getElementById('score').textContent = score;
+                    }
                     showPopup(elX, elY, '🔥 +1!');
                     setTimeout(() => el.remove(), 400);
-                    if (score >= 67) checkLevelComplete();
+                    if (!bossActive && score >= 67) checkLevelComplete();
                 }
             });
         }
@@ -2007,14 +2021,19 @@
             el.classList.add('caught');
 
             const points = (selectedAvatar === 'suiii-man') ? 5 : 2;
-            score += points;
             combo++;
-            document.getElementById('score').textContent = score;
+
+            if (bossActive) {
+                damageBoss(points);
+            } else {
+                score += points;
+                document.getElementById('score').textContent = score;
+            }
 
             showPopup(touch.clientX, touch.clientY, `SUII! +${points}!`);
             setTimeout(() => el.remove(), 400);
 
-            if (score >= 67) checkLevelComplete();
+            if (!bossActive && score >= 67) checkLevelComplete();
         }
 
         function startBossPhase() {
