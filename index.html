@@ -264,9 +264,9 @@
         #disco-ball {
             display: none;
             position: fixed;
-            top: max(10px, env(safe-area-inset-top));
-            right: 15px;
-            font-size: 50px;
+            top: max(45px, calc(env(safe-area-inset-top) + 35px));
+            left: 15px;
+            font-size: 40px;
             z-index: 2000;
             animation: disco-ball-spin 2s linear infinite;
             filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
@@ -1463,6 +1463,11 @@
             gameActive = false;
             clearAllIntervals();
             removeAllItems();
+            deactivateDisco();
+            deactivateFireChicken();
+            deactivatePoison();
+            deactivateCR7();
+            deactivateKlasse();
             currentLevel++;
 
             const levelNames = { 2: '⚽ Fußball & 🍄 Giftpilz!', 3: '⚠️ Die 11er kommen!' };
@@ -1566,11 +1571,13 @@
             deactivateFireChicken();
             deactivatePoison();
             deactivateCR7();
+            deactivateKlasse();
             clearAllIntervals();
 
             document.getElementById('score').textContent = '0';
             document.getElementById('win-screen').style.display = 'none';
             document.getElementById('lava-text').classList.remove('active');
+            document.getElementById('klassenzimmer-text').classList.remove('active');
             document.getElementById('level-display').textContent = 'LVL 1';
 
             removeAllItems();
@@ -1759,7 +1766,8 @@
             }
 
             const lavaRadius = 450;
-            document.querySelectorAll('.falling-67').forEach(el => {
+
+            document.querySelectorAll('.falling-67, .falling-cr7, .falling-4c').forEach(el => {
                 if (el.classList.contains('caught') || el.classList.contains('missed')) return;
                 const rect = el.getBoundingClientRect();
                 const elX = rect.left + rect.width / 2;
@@ -1768,15 +1776,29 @@
                 if (dist < lavaRadius) {
                     el.classList.add('caught');
                     combo++;
+                    const pts = el.classList.contains('falling-cr7') ? ((selectedAvatar === 'suiii-man') ? 5 : 2) : el.classList.contains('falling-4c') ? 2 : 1;
                     if (bossActive) {
-                        damageBoss(1);
+                        damageBoss(pts);
                     } else {
-                        score++;
+                        score += pts;
                         document.getElementById('score').textContent = score;
                     }
-                    showPopup(elX, elY, '🔥 +1!');
+                    showPopup(elX, elY, `🔥 +${pts}!`);
                     setTimeout(() => el.remove(), 400);
                     if (!bossActive && score >= 67) checkLevelComplete();
+                }
+            });
+
+            document.querySelectorAll('.falling-11, .falling-mushroom').forEach(el => {
+                if (el.classList.contains('caught')) return;
+                const rect = el.getBoundingClientRect();
+                const elX = rect.left + rect.width / 2;
+                const elY = rect.top + rect.height / 2;
+                const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                if (dist < lavaRadius) {
+                    el.classList.add('caught');
+                    showPopup(elX, elY, '🔥 Zerstört!');
+                    setTimeout(() => el.remove(), 400);
                 }
             });
 
@@ -1821,7 +1843,8 @@
             }
 
             const lavaRadius = 450;
-            document.querySelectorAll('.falling-67').forEach(el => {
+
+            document.querySelectorAll('.falling-67, .falling-cr7, .falling-4c').forEach(el => {
                 if (el.classList.contains('caught') || el.classList.contains('missed')) return;
                 const rect = el.getBoundingClientRect();
                 const elX = rect.left + rect.width / 2;
@@ -1830,15 +1853,29 @@
                 if (dist < lavaRadius) {
                     el.classList.add('caught');
                     combo++;
+                    const pts = el.classList.contains('falling-cr7') ? ((selectedAvatar === 'suiii-man') ? 5 : 2) : el.classList.contains('falling-4c') ? 2 : 1;
                     if (bossActive) {
-                        damageBoss(1);
+                        damageBoss(pts);
                     } else {
-                        score++;
+                        score += pts;
                         document.getElementById('score').textContent = score;
                     }
-                    showPopup(elX, elY, '🔥 +1!');
+                    showPopup(elX, elY, `🔥 +${pts}!`);
                     setTimeout(() => el.remove(), 400);
                     if (!bossActive && score >= 67) checkLevelComplete();
+                }
+            });
+
+            document.querySelectorAll('.falling-11, .falling-mushroom').forEach(el => {
+                if (el.classList.contains('caught')) return;
+                const rect = el.getBoundingClientRect();
+                const elX = rect.left + rect.width / 2;
+                const elY = rect.top + rect.height / 2;
+                const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                if (dist < lavaRadius) {
+                    el.classList.add('caught');
+                    showPopup(elX, elY, '🔥 Zerstört!');
+                    setTimeout(() => el.remove(), 400);
                 }
             });
         }
@@ -2314,8 +2351,10 @@
         }
 
         function startGame() {
-            currentSpeed = 3.5;
-            spawnRate = 1400;
+            const levelSpeedBonus = (currentLevel - 1) * 0.6;
+            const levelSpawnBonus = (currentLevel - 1) * 200;
+            currentSpeed = 3.0 - levelSpeedBonus;
+            spawnRate = 1300 - levelSpawnBonus;
 
             spawnInterval = setInterval(spawn67, spawnRate);
 
