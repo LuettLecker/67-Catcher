@@ -682,6 +682,70 @@
             to { transform: scale(1.15); }
         }
 
+        .falling-tiger {
+            position: absolute;
+            font-size: 55px;
+            z-index: 150;
+            padding: 25px;
+            animation: tiger-bounce 0.5s ease-in-out infinite alternate;
+            filter: drop-shadow(0 0 12px rgba(255, 165, 0, 0.8));
+        }
+
+        @keyframes tiger-bounce {
+            0% { transform: scale(1) rotate(-5deg); }
+            100% { transform: scale(1.1) rotate(5deg); }
+        }
+
+        .falling-tiger.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        .falling-4c {
+            position: absolute;
+            font-size: 48px;
+            font-weight: bold;
+            color: #ff8c00;
+            text-shadow: 0 0 15px rgba(255, 140, 0, 0.8);
+            z-index: 100;
+            animation: wobble-4c 0.4s ease-in-out infinite alternate;
+            padding: 25px;
+        }
+
+        @keyframes wobble-4c {
+            from { transform: rotate(-4deg); }
+            to { transform: rotate(4deg); }
+        }
+
+        .falling-4c.caught {
+            animation: explode 0.4s ease-out forwards;
+            pointer-events: none;
+        }
+
+        #klassenzimmer-text {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff8c00;
+            z-index: 3000;
+            text-shadow: 0 0 20px #ff8c00, 0 0 40px #ffb347;
+            animation: klasse-pulse 0.4s ease-in-out infinite alternate;
+            white-space: nowrap;
+        }
+
+        #klassenzimmer-text.active {
+            display: block;
+        }
+
+        @keyframes klasse-pulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            100% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
         #boss-container {
             display: none;
             position: fixed;
@@ -997,6 +1061,32 @@
                 <div class="avatar-name">Lava-Boy</div>
                 <div class="avatar-effect">2x Vulkane & Explosion</div>
             </div>
+            <div class="avatar-card" data-avatar="tiger-toni" onclick="selectAvatar(this)">
+                <svg viewBox="0 0 70 90" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="35" cy="25" r="18" fill="#ffb347"/>
+                    <path d="M18 18 L22 8 L26 16" fill="#ffb347" stroke="#ff8c00" stroke-width="1"/>
+                    <path d="M44 18 L48 8 L52 16" fill="#ffb347" stroke="#ff8c00" stroke-width="1"/>
+                    <path d="M22 15 L28 20 M25 12 L30 18 M40 20 L48 15 M42 18 L47 12" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="28" cy="24" r="3" fill="#fff"/>
+                    <circle cx="28" cy="24" r="1.5" fill="#222"/>
+                    <circle cx="42" cy="24" r="3" fill="#fff"/>
+                    <circle cx="42" cy="24" r="1.5" fill="#222"/>
+                    <ellipse cx="35" cy="32" rx="4" ry="2.5" fill="#ffcba4"/>
+                    <path d="M33 32 L35 34 L37 32" stroke="#222" fill="none" stroke-width="1"/>
+                    <rect x="25" y="43" width="20" height="30" rx="5" fill="#ff8c00"/>
+                    <path d="M28 48 L32 55 M35 46 L35 55 M38 48 L42 55" stroke="#222" stroke-width="2" stroke-linecap="round"/>
+                    <rect x="18" y="45" width="8" height="20" rx="4" fill="#ffb347"/>
+                    <rect x="44" y="45" width="8" height="20" rx="4" fill="#ffb347"/>
+                    <rect x="27" y="73" width="7" height="12" rx="3" fill="#222"/>
+                    <rect x="36" y="73" width="7" height="12" rx="3" fill="#222"/>
+                </svg>
+                <div class="avatar-name">Tiger Toni</div>
+                <div class="avatar-effect">🔒 4C Klasse</div>
+            </div>
+        </div>
+        <div id="password-prompt" style="display:none; margin-top:8px;">
+            <input class="name-input" id="avatar-password" type="password" placeholder="Passwort..." maxlength="10" style="width:60%; max-width:180px; font-size:16px;">
+            <span id="pw-error" style="color:#ff6b6b; font-size:12px; display:none; margin-top:4px;">Falsches Passwort!</span>
         </div>
         <button id="start-btn" onclick="startGameFromMenu()">START 🎮</button>
     </div>
@@ -1007,6 +1097,7 @@
     <div id="fire-chicken-indicator">🐔🔥</div>
     <div id="poison-overlay"></div>
     <div id="poison-timer">🍄 GIFT: <span id="poison-countdown">10</span>s 🍄</div>
+    <div id="klassenzimmer-text">🐯 Klassenzimmer-Event! 🐯</div>
     <div id="boss-announce">🐐 Der GOAT kommt! 🐐</div>
     <div id="boss-container">
         <div id="boss-emoji">🐐</div>
@@ -1080,6 +1171,10 @@
         let cr7SpawnInterval = null;
         let cr7Timeout = null;
         let cr7CountdownInterval = null;
+        let tigerInterval = null;
+        let klasseActive = false;
+        let klasseSpawnInterval = null;
+        let klasseTimeout = null;
         let bossActive = false;
         let bossHP = 50;
         let bossMaxHP = 50;
@@ -1098,6 +1193,30 @@
 
                 const hitRadius = discoActive ? 120 : 60;
                 let hitSomething = false;
+
+                document.querySelectorAll('.falling-tiger').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius + 30) {
+                        catchTiger(touch, el);
+                        hitSomething = true;
+                    }
+                });
+
+                document.querySelectorAll('.falling-4c').forEach(el => {
+                    if (el.classList.contains('caught')) return;
+                    const rect = el.getBoundingClientRect();
+                    const elX = rect.left + rect.width / 2;
+                    const elY = rect.top + rect.height / 2;
+                    const dist = Math.sqrt((x - elX) ** 2 + (y - elY) ** 2);
+                    if (dist < hitRadius) {
+                        catch4C(touch, el);
+                        hitSomething = true;
+                    }
+                });
 
                 document.querySelectorAll('.falling-football').forEach(el => {
                     if (el.classList.contains('caught')) return;
@@ -1227,6 +1346,9 @@
 
         function spawn67() {
             if (!gameActive) return;
+            if (discoActive && Math.random() < 0.5) {
+                setTimeout(() => spawn67(), 200);
+            }
 
             const el = document.createElement('div');
             el.className = 'falling-67';
@@ -1367,10 +1489,13 @@
             clearInterval(footballInterval);
             clearInterval(bananaInterval);
             clearInterval(volcanoInterval);
+            clearInterval(tigerInterval);
+            clearInterval(klasseSpawnInterval);
+            clearTimeout(klasseTimeout);
         }
 
         function removeAllItems() {
-            document.querySelectorAll('.falling-67, .falling-11, .falling-mushroom, .falling-banana, .falling-volcano, .falling-football, .falling-cr7').forEach(el => el.remove());
+            document.querySelectorAll('.falling-67, .falling-11, .falling-mushroom, .falling-banana, .falling-volcano, .falling-football, .falling-cr7, .falling-tiger, .falling-4c').forEach(el => el.remove());
         }
 
         function winGame() {
@@ -2036,6 +2161,115 @@
             if (!bossActive && score >= 67) checkLevelComplete();
         }
 
+        function spawnTiger() {
+            if (!gameActive || klasseActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-tiger';
+            el.textContent = '🐯';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = 5 + Math.random() * 2;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+                el.style.top = currentY + 'px';
+                if (currentY >= window.innerHeight - 80) { el.remove(); return; }
+                requestAnimationFrame(fall);
+            }
+            requestAnimationFrame(fall);
+        }
+
+        function catchTiger(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+            showPopup(touch.clientX, touch.clientY, '🐯 KLASSENZIMMER!');
+            setTimeout(() => el.remove(), 400);
+            activateKlasse();
+        }
+
+        function activateKlasse() {
+            klasseActive = true;
+            clearTimeout(klasseTimeout);
+            clearInterval(klasseSpawnInterval);
+
+            document.getElementById('klassenzimmer-text').classList.add('active');
+
+            klasseSpawnInterval = setInterval(() => {
+                if (gameActive && !paused) spawn4C();
+            }, 900);
+
+            klasseTimeout = setTimeout(() => {
+                deactivateKlasse();
+            }, 6000);
+        }
+
+        function deactivateKlasse() {
+            klasseActive = false;
+            clearTimeout(klasseTimeout);
+            clearInterval(klasseSpawnInterval);
+            document.getElementById('klassenzimmer-text').classList.remove('active');
+        }
+
+        function spawn4C() {
+            if (!gameActive) return;
+
+            const el = document.createElement('div');
+            el.className = 'falling-4c';
+            el.textContent = '4C';
+            el.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            el.style.top = '-80px';
+            el.style.fontSize = (40 + Math.random() * 20) + 'px';
+
+            document.getElementById('game-area').appendChild(el);
+
+            const fallDuration = currentSpeed + Math.random() * 1.5;
+            let startTime = performance.now();
+            let startY = -80;
+            const endY = window.innerHeight + 10;
+
+            function fall(timestamp) {
+                if (!el.parentNode || el.classList.contains('caught')) return;
+                if (paused) { startTime += (timestamp - (el._lastFrame || timestamp)); el._lastFrame = timestamp; requestAnimationFrame(fall); return; }
+                el._lastFrame = timestamp;
+                const elapsed = (timestamp - startTime) / 1000;
+                const progress = elapsed / fallDuration;
+                const currentY = startY + (endY - startY) * progress;
+                el.style.top = currentY + 'px';
+                if (currentY >= window.innerHeight - 60) { el.remove(); return; }
+                requestAnimationFrame(fall);
+            }
+            requestAnimationFrame(fall);
+        }
+
+        function catch4C(touch, el) {
+            if (el.classList.contains('caught') || !gameActive) return;
+            el.classList.add('caught');
+            combo++;
+
+            if (bossActive) {
+                damageBoss(2);
+            } else {
+                score += 2;
+                document.getElementById('score').textContent = score;
+            }
+
+            showPopup(touch.clientX, touch.clientY, 'Beste Klasse! +2');
+            setTimeout(() => el.remove(), 400);
+            if (!bossActive && score >= 67) checkLevelComplete();
+        }
+
         function startBossPhase() {
             bossActive = true;
             bossHP = bossMaxHP;
@@ -2110,6 +2344,12 @@
                 }, 3000);
             }
 
+            if (selectedAvatar === 'tiger-toni') {
+                tigerInterval = setInterval(() => {
+                    if (Math.random() < 0.25) spawnTiger();
+                }, 10000);
+            }
+
             difficultyInterval = setInterval(() => {
                 if (!gameActive) return;
                 if (currentSpeed > 2) currentSpeed -= 0.12;
@@ -2148,16 +2388,31 @@
             document.querySelectorAll('.avatar-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             selectedAvatar = card.dataset.avatar;
+
+            const pwPrompt = document.getElementById('password-prompt');
+            const pwError = document.getElementById('pw-error');
+            pwError.style.display = 'none';
+            if (selectedAvatar === 'tiger-toni') {
+                pwPrompt.style.display = 'block';
+            } else {
+                pwPrompt.style.display = 'none';
+            }
             checkStartReady();
         }
 
         document.getElementById('player-name').addEventListener('input', checkStartReady);
+        document.getElementById('avatar-password').addEventListener('input', checkStartReady);
 
         function checkStartReady() {
             const name = document.getElementById('player-name').value.trim();
             const btn = document.getElementById('start-btn');
             if (name.length > 0 && selectedAvatar) {
-                btn.classList.add('ready');
+                if (selectedAvatar === 'tiger-toni') {
+                    const pw = document.getElementById('avatar-password').value;
+                    btn.classList.toggle('ready', pw.length > 0);
+                } else {
+                    btn.classList.add('ready');
+                }
             } else {
                 btn.classList.remove('ready');
             }
@@ -2166,6 +2421,15 @@
         function startGameFromMenu() {
             playerName = document.getElementById('player-name').value.trim();
             if (!playerName || !selectedAvatar) return;
+
+            if (selectedAvatar === 'tiger-toni') {
+                const pw = document.getElementById('avatar-password').value;
+                if (pw !== '2023') {
+                    document.getElementById('pw-error').style.display = 'inline';
+                    return;
+                }
+            }
+
             document.getElementById('start-screen').classList.add('hidden');
             gameActive = true;
             startGame();
